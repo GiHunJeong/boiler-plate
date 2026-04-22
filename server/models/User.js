@@ -60,6 +60,28 @@ userSchema.methods.generateToken = async function () {
     return user
 }
 
+userSchema.statics.findByToken = function (token, cb) {
+    const User = this
+
+    // 토큰 decode
+    jwt.verify(token, 'secretToken', async function (err, decoded) {
+        if (err) return cb(err)
+
+        try {
+            // 유저 아이디를 이용해 유저를 찾음
+            // 클라이언트에서 가져온 token과 db에 보관된 token이 일치하는지 확인
+            const user = await User.findOne({
+                _id: decoded,
+                token: token
+            })
+
+            cb(null, user)
+        } catch (err) {
+            cb(err)
+        }
+    })
+}
+
 const User = mongoose.model('User', userSchema)
 
 module.exports = { User }

@@ -8,6 +8,7 @@ const cookieParser = require('cookie-parser')
 
 const config = require('./config/key')
 
+const { auth } = require('./middleware/auth')
 const { User } = require('./models/User')
 
 // applcation/x-www-from-urlencoded 데이터를 가져올수 있게
@@ -28,7 +29,7 @@ mongoose.connect(config.mongoURI, {
 
 app.get('/', (req, res) => res.send('Hello World!'))
 
-app.post('/register', async (req, res) => {
+app.post('/api/users/register', async (req, res) => {
     try {
         const user = new User(req.body)
         const userInfo = await user.save()
@@ -44,7 +45,7 @@ app.post('/register', async (req, res) => {
     }
 })
 
-app.post('/login', async (req, res) => {
+app.post('/api/users/login', async (req, res) => {
     try {
         // 요청된 이메일을 데이터베이스에서 있는지 찾는다.
         const user = await User.findOne({ email: req.body.email })
@@ -65,11 +66,10 @@ app.post('/login', async (req, res) => {
                 message: "비밀번호가 틀렸습니다."
             })
         }
-        console.log('isMatch=> ',isMatch);
 
         // 비밀번호까지 맞다면 토큰 생성
         const updatedUser = await user.generateToken()
-        console.log('updatedUser=> ',updatedUser);
+
         // 토큰 저장
         return res
             .cookie("x_auth", updatedUser.token)
@@ -81,6 +81,37 @@ app.post('/login', async (req, res) => {
 
     } catch (err) {
         return res.status(400).send(err)
+    }
+})
+
+app.get('/api/users/auth', auth, (req, res) => {
+    res.status(200).json({
+        _id: req.user._id,
+        isAdmin: req.user.role === 0 ? false : true,
+        isAuth: true,
+        email: req.user.email,
+        name: req.user.name,
+        lastname: req.user.lastname,
+        role: req.user.role,
+        image: req.user.image
+    })
+})
+
+app.get('/api/users/logout', auth, async (req, res) => {
+    try {
+        await User.findOneAndUpdate(
+            { _id: req.user._id },
+            { token: "" }
+        )
+
+        return res.status(200).json({
+            success: true
+        })
+    } catch (err) {
+        return res.status(400).json({
+            success: false,
+            err
+        })
     }
 })
 
